@@ -1,4 +1,4 @@
-# ComputerArchitectureP2
+# Computer Architecture (Project 2)
 Cache Organization and Performance Evaluation
 
 ITAM, Mexico City.
