@@ -14,5 +14,7 @@ main.o:  main.c cache.h
 cache.o:  cache.c cache.h
 	$(CC) $(CFLAGS) -c cache.c
 
+.PHONY: clean
+
 clean:
 	rm -f $(JUNK) ./sim
