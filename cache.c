@@ -112,12 +112,19 @@ void print_cache()
 }
 /************************************************************/
 
+unsigned get_index(unsigned addr, cache c){
+  unsigned index = (addr & c.index_mask) >> c.index_mask_offset;
+  return(index);
+} 
+
 /************************************************************/
 void perform_access(addr, access_type)
   unsigned addr, access_type;
 {
 
   /* handle an access to the cache */
+  unsigned idx = get_index(addr, c1);
+  printf("\nIndex: %d", idx);
 
 }
 /************************************************************/
