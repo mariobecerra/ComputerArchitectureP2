@@ -18,6 +18,7 @@ int main(argc, argv)
 {
   parse_args(argc, argv);
   init_cache();
+  print_cache();    
   play_trace(traceFile);
   print_stats();
 }

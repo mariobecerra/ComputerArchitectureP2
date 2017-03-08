@@ -2,7 +2,6 @@
  * cache.c
  */
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -78,9 +77,38 @@ void set_cache_param(param, value)
 /************************************************************/
 void init_cache()
 {
-
   /* initialize the cache, and cache statistics data structures */
+  if(!cache_split){ // if unified cache
+    c1.size = cache_usize;
+    c1.associativity = cache_assoc;
+    c1.n_sets = c1.size/(cache_block_size*cache_assoc);
+    c1.index_mask_offset = LOG2(cache_block_size);
+//    c1.index_mask = (c1.n_sets - 1) << c1.index_mask_offset;
+    c1.index_mask = (c1.n_sets - 1) * (int)pow(2, c1.index_mask_offset);
+    c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
+    c1.LRU_tail = NULL;
+    c1.set_contents = (int*)malloc(sizeof(int));
+    for(int i = 0; i < c1.n_sets; i++){
+      c1.LRU_head[i] = NULL;
+    }
+  } else {
+    // Write correct parameter for tail with higher associativity
+    c1.LRU_tail = NULL;
+  }
 
+}
+
+void print_cache() 
+{
+  printf("\n\nA huevo, perros\n");
+  printf("cache block size: %d\n", cache_block_size);
+  printf("size: %d\n", c1.size);
+  printf("associativity: %d\n", c1.associativity);
+  printf("n_sets: %d\n", c1.n_sets);
+  printf("index_mask: %d\n", c1.index_mask);
+  printf("index_mask_offset: %d\n", c1.index_mask_offset);
+  printf("set_contents: %d\n", *(c1.set_contents));
+  printf("A huevo dos veces, perros\n\n");
 }
 /************************************************************/
 
