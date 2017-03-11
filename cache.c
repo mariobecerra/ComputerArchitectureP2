@@ -1,6 +1,8 @@
 /*
  * cache.c
+ Primera version: Mapeo directo, cache unificado
  */
+
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -8,6 +10,10 @@
 
 #include "cache.h"
 #include "main.h"
+
+/* De MASK_ORIG quedarán "n" 1 a la izquierda
+ para identificar el tag de la direccion */
+#define MASK_ORIG 0xFFFFFFFF  // 32 bits a 1
 
 /* cache configuration parameters */
 static int cache_split = 0;
@@ -77,54 +83,137 @@ void set_cache_param(param, value)
 /************************************************************/
 void init_cache()
 {
+    int bitsOffset, bitsSet; // No. de bits para direccionar offset y set
+    int auxMask; // ayuda a generar la mascara del set
+    
   /* initialize the cache, and cache statistics data structures */
-  if(!cache_split){ // if unified cache
-    c1.size = cache_usize;
-    c1.associativity = cache_assoc;
-    c1.n_sets = c1.size/(cache_block_size*cache_assoc);
-    c1.index_mask_offset = LOG2(cache_block_size);
-//    c1.index_mask = (c1.n_sets - 1) << c1.index_mask_offset;
-    c1.index_mask = (c1.n_sets - 1) * (int)pow(2, c1.index_mask_offset);
-    c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
-    c1.LRU_tail = NULL;
-    c1.set_contents = (int*)malloc(sizeof(int));
-    for(int i = 0; i < c1.n_sets; i++){
-      c1.LRU_head[i] = NULL;
-    }
-  } else {
-    // Write correct parameter for tail with higher associativity
-    c1.LRU_tail = NULL;
-  }
-
+    c1.size= cache_usize;
+    c1.associativity=cache_assoc;
+    c1.n_sets=c1.size /(words_per_block*WORD_SIZE);
+    c1.LRU_head=(Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
+    c1.LRU_tail=NULL;
+    c1.set_contents=NULL;
+   
+    
+   // Calcula campos de set y de offset
+    // Tengo un problema con la macro LOG2
+    bitsSet=((int)rint((log((double)(c1.n_sets)))/(log(2.0))));
+//    bitsOffset=((int)rint((log((double)(words_per_block)))/(log(2.0))));
+    bitsOffset=((int)rint((log((double)(cache_block_size)))/(log(2.0))));
+    
+    auxMask=(1<<bitsSet)-1;
+    
+    c1.index_mask = auxMask<< bitsOffset;
+    c1.index_mask_offset=bitsOffset;  // Cuánto lo debo correr a la derecha
+//    printf("mask=%X\n",c1.index_mask);
+    
+//    printf("bits set= %d, bits offset = %d mask= %04x\n",bitsSet,bitsOffset,auxMask);
+    // Hay que poner los apuntadores a lineas de cache en cero
+    for(int i=0; i<c1.n_sets; i++)
+        c1.LRU_head[i]=NULL;
+    
+    // Nos aseguramos que los contadores estén en cero
+    // Dependiendo del compilador, esto puede o no ser necesario.
+    // C no garantiza la inicialización
+    
+    cache_stat_data.accesses=0;
+    cache_stat_data.copies_back=0;
+    cache_stat_data.demand_fetches=0;
+    cache_stat_data.misses=0;
+    cache_stat_data.replacements=0;
+    cache_stat_inst.accesses=0;
+    cache_stat_inst.copies_back=0;
+    cache_stat_inst.demand_fetches=0;
+    cache_stat_inst.misses=0;
+    cache_stat_inst.replacements=0;
 }
 
-void print_cache() 
-{
-  printf("\n\nA huevo, perros\n");
-  printf("cache block size: %d\n", cache_block_size);
-  printf("size: %d\n", c1.size);
-  printf("associativity: %d\n", c1.associativity);
-  printf("n_sets: %d\n", c1.n_sets);
-  printf("index_mask: %d\n", c1.index_mask);
-  printf("index_mask_offset: %d\n", c1.index_mask_offset);
-  printf("set_contents: %d\n", *(c1.set_contents));
-  printf("A huevo dos veces, perros\n\n");
-}
 /************************************************************/
-
-unsigned get_index(unsigned addr, cache c){
-  unsigned index = (addr & c.index_mask) >> c.index_mask_offset;
-  return(index);
-} 
 
 /************************************************************/
 void perform_access(addr, access_type)
   unsigned addr, access_type;
 {
-
-  /* handle an access to the cache */
-  unsigned idx = get_index(addr, c1);
-  printf("\nIndex: %d", idx);
+    static int nl=0;
+    int index;  // para acceder a la linea correspondiente en el set
+    unsigned int bitsSet, bitsOffset,tagMask,tag;
+    
+    // Calcula tag
+    bitsSet=((int)rint((log((double)(c1.n_sets)))/(log(2.0))));
+    bitsOffset=((int)rint((log((double)(cache_block_size)))/(log(2.0))));
+    tagMask=MASK_ORIG<<(bitsOffset+bitsSet);
+    tag=addr&tagMask;
+    
+    //printf("Dir = %X, tag =%X\n",addr,tag);
+    
+    index = (addr & c1.index_mask) >> c1.index_mask_offset;
+    nl++;
+    
+    switch(access_type){
+        case TRACE_INST_LOAD:
+            cache_stat_inst.accesses++;
+            if(c1.LRU_head[index]==NULL){  // Compulsory miss
+                cache_stat_inst.misses++;
+                c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+                c1.LRU_head[index]->tag=tag;
+                c1.LRU_head[index]->dirty=0;
+                cache_stat_inst.demand_fetches+=4;
+            } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
+                if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
+                    cache_stat_data.copies_back+=4;
+     //               cache_stat_inst.demand_fetches+=4;
+                }
+    //            printf("Linea: %d. Index: %04x. Remplazo cache con tag viejo: %04X y nuevo %04x\n",nl,index,c1.LRU_head[index]->tag,tag);
+                cache_stat_inst.misses++;
+                cache_stat_inst.replacements++;
+                cache_stat_inst.demand_fetches+=4;
+                c1.LRU_head[index]->tag=tag;
+                c1.LRU_head[index]->dirty=0;
+            }
+            break;
+        case TRACE_DATA_LOAD:
+            cache_stat_data.accesses++;
+            
+            if(c1.LRU_head[index]==NULL){  // Compulsory miss
+                cache_stat_data.misses++;
+                c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+                c1.LRU_head[index]->tag=tag;
+                c1.LRU_head[index]->dirty=0;
+                cache_stat_data.demand_fetches+=4;
+            } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
+                if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
+                    cache_stat_data.copies_back+=4;
+                }
+                cache_stat_data.misses++;
+                cache_stat_data.replacements++;
+                cache_stat_data.demand_fetches+=4;
+                c1.LRU_head[index]->tag=tag;
+                c1.LRU_head[index]->dirty=0;
+            }
+            break;
+        case TRACE_DATA_STORE:
+            cache_stat_data.accesses++;
+            
+            if(c1.LRU_head[index]==NULL){  // Compulsory miss
+                cache_stat_data.misses++;
+                c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+                c1.LRU_head[index]->tag=tag;
+                c1.LRU_head[index]->dirty=1;
+                cache_stat_data.demand_fetches+=4;
+            } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
+                if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
+                    cache_stat_data.copies_back+=4;
+                }
+                cache_stat_data.misses++;
+                cache_stat_data.replacements++;
+                cache_stat_data.demand_fetches+=4;
+                c1.LRU_head[index]->tag=tag;
+                c1.LRU_head[index]->dirty=1;
+            }
+            else
+                c1.LRU_head[index]->dirty=1;
+            break;
+    }
 
 }
 /************************************************************/
@@ -134,6 +223,13 @@ void flush()
 {
 
   /* flush the cache */
+    for(int i=0; i<c1.n_sets; i++){
+        if(c1.LRU_head[i]!=NULL){
+            if(c1.LRU_head[i]->dirty){
+                cache_stat_data.copies_back+=4;
+            }
+        }
+    }
 
 }
 /************************************************************/
