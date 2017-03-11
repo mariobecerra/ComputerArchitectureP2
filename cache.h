@@ -67,7 +67,6 @@ void delete();
 void insert();
 void dump_settings();
 void print_stats();
-void print_cache();
 
 
 /* macros */
