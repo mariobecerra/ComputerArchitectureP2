@@ -82,12 +82,12 @@ void set_cache_param(param, value)
 
 /************************************************************/
 
-void init_cache_aux(cache *c){
+void init_cache_aux(cache *c, int size){
   int bitsOffset, bitsSet; // No. de bits para direccionar offset y set
   int auxMask; // ayuda a generar la mascara del set
     
   /* initialize the cache, and cache statistics data structures */
-  c->size = cache_usize;
+  c->size = size;
   c->associativity = cache_assoc;
   c->n_sets = c->size /(words_per_block*WORD_SIZE);
   c->LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c->n_sets);
@@ -115,7 +115,14 @@ void init_cache_aux(cache *c){
 
 void init_cache()
 {
-    init_cache_aux(&c1);
+    if(cache_split){
+      init_cache_aux(&c1, cache_dsize);
+      init_cache_aux(&c2, cache_isize);  
+    } else {
+      init_cache_aux(&c1, cache_usize);  
+    }
+    
+
 
     // int bitsOffset, bitsSet; // No. de bits para direccionar offset y set
     // int auxMask; // ayuda a generar la mascara del set
@@ -165,90 +172,275 @@ void init_cache()
 /************************************************************/
 
 /************************************************************/
+
+void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
+  static int nl=0;
+  int index;  // para acceder a la linea correspondiente en el set
+  unsigned int bitsSet, bitsOffset,tagMask,tag;
+  int block_size_in_words = cache_block_size/WORD_SIZE;
+
+  // Calcula tag
+  bitsSet=((int)rint((log((double)(c->n_sets)))/(log(2.0))));
+  bitsOffset=((int)rint((log((double)(cache_block_size)))/(log(2.0))));
+  tagMask=MASK_ORIG<<(bitsOffset+bitsSet);
+  tag=addr&tagMask;
+  
+  //printf("Dir = %X, tag =%X\n",addr,tag);
+  
+  index = (addr & c->index_mask) >> c->index_mask_offset;
+  nl++;
+  
+  switch(access_type){
+      case TRACE_INST_LOAD:
+          cache_stat_inst.accesses++;
+          if(c->LRU_head[index]==NULL){  // Compulsory miss
+              cache_stat_inst.misses++;
+              c->LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+              c->LRU_head[index]->tag=tag;
+              c->LRU_head[index]->dirty=0;
+              cache_stat_inst.demand_fetches+=block_size_in_words;
+          } else if(c->LRU_head[index]->tag!=tag){  // Cache miss
+              if(c->LRU_head[index]->dirty) { // Hay que guardar bloque
+                  cache_stat_data.copies_back+=block_size_in_words;
+   //               cache_stat_inst.demand_fetches+=block_size_in_words;
+              }
+              cache_stat_inst.misses++;
+              cache_stat_inst.replacements++;
+              cache_stat_inst.demand_fetches+=block_size_in_words;
+              c->LRU_head[index]->tag=tag;
+              c->LRU_head[index]->dirty=0;
+          }
+          break;
+      case TRACE_DATA_LOAD:
+          cache_stat_data.accesses++;
+          
+          if(c->LRU_head[index]==NULL){  // Compulsory miss
+              cache_stat_data.misses++;
+              c->LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+              c->LRU_head[index]->tag=tag;
+              c->LRU_head[index]->dirty=0;
+              cache_stat_data.demand_fetches+=block_size_in_words;
+          } else if(c->LRU_head[index]->tag!=tag){  // Cache miss
+              if(c->LRU_head[index]->dirty) { // Hay que guardar bloque
+                  cache_stat_data.copies_back+=block_size_in_words;
+              }
+              cache_stat_data.misses++;
+              cache_stat_data.replacements++;
+              cache_stat_data.demand_fetches+=block_size_in_words;
+              c->LRU_head[index]->tag=tag;
+              c->LRU_head[index]->dirty=0;
+          }
+          break;
+      case TRACE_DATA_STORE:
+          cache_stat_data.accesses++;
+          
+          if(c->LRU_head[index]==NULL){  // Compulsory miss
+              cache_stat_data.misses++;
+              c->LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+              c->LRU_head[index]->tag=tag;
+              c->LRU_head[index]->dirty=1;
+              cache_stat_data.demand_fetches+=block_size_in_words;
+          } else if(c->LRU_head[index]->tag!=tag){  // Cache miss
+              if(c->LRU_head[index]->dirty) { // Hay que guardar bloque
+                  cache_stat_data.copies_back+=block_size_in_words;
+              }
+              cache_stat_data.misses++;
+              cache_stat_data.replacements++;
+              cache_stat_data.demand_fetches+=block_size_in_words;
+              c->LRU_head[index]->tag=tag;
+              c->LRU_head[index]->dirty=1;
+          }
+          else
+              c->LRU_head[index]->dirty=1;
+          break;
+  }
+}
+
+
+
+void perform_access_aux_split(cache *c1, cache *c2, unsigned addr, unsigned access_type){
+  static int nl=0;
+  int index_c1, index_c2;  // para acceder a la linea correspondiente en el set
+  unsigned int bitsSet_c1, bitsSet_c2, bitsOffset, tagMask_c1, tagMask_c2, tag_c1, tag_c2;
+  int block_size_in_words = cache_block_size/WORD_SIZE;
+
+  // Calcula tag
+  bitsSet_c1 = LOG2(c1->n_sets);
+  bitsSet_c2 = LOG2(c2->n_sets);
+  //bitsSet_c1 = ((int)rint((log((double)(c->n_sets)))/(log(2.0))));
+  //bitsOffset=((int)rint((log((double)(cache_block_size)))/(log(2.0))));
+  bitsOffset = LOG2(cache_block_size);
+  tagMask_c1 = MASK_ORIG << (bitsOffset + bitsSet_c1);
+  tagMask_c2 = MASK_ORIG << (bitsOffset + bitsSet_c2);
+  tag_c1 = addr & tagMask_c1;
+  tag_c2 = addr & tagMask_c2;
+  index_c1 = (addr & c1->index_mask) >> c1->index_mask_offset;
+  index_c2 = (addr & c2->index_mask) >> c2->index_mask_offset;
+  nl++;
+  
+  switch(access_type){
+      case TRACE_INST_LOAD:
+          cache_stat_inst.accesses++;
+          if(c2->LRU_head[index_c2]==NULL){  // Compulsory miss
+              cache_stat_inst.misses++;
+              c2->LRU_head[index_c2]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+              c2->LRU_head[index_c2]->tag = tag_c2;
+              c2->LRU_head[index_c2]->dirty = 0;
+              cache_stat_inst.demand_fetches+=block_size_in_words;
+          } else if(c2->LRU_head[index_c2]->tag != tag_c2){  // Cache miss
+              if(c2->LRU_head[index_c2]->dirty) { // Hay que guardar bloque
+                  cache_stat_data.copies_back += block_size_in_words;
+              }
+              cache_stat_inst.misses++;
+              cache_stat_inst.replacements++;
+              cache_stat_inst.demand_fetches+=block_size_in_words;
+              c2->LRU_head[index_c2]->tag = tag_c2;
+              c2->LRU_head[index_c2]->dirty = 0;
+          }
+          break;
+      case TRACE_DATA_LOAD:
+          cache_stat_data.accesses++;
+          
+          if(c1->LRU_head[index_c1]==NULL){  // Compulsory miss
+              cache_stat_data.misses++;
+              c1->LRU_head[index_c1] = malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+              c1->LRU_head[index_c1]->tag = tag_c1;
+              c1->LRU_head[index_c1]->dirty = 0;
+              cache_stat_data.demand_fetches += block_size_in_words;
+          } else if(c1->LRU_head[index_c1]->tag != tag_c1){  // Cache miss
+              if(c1->LRU_head[index_c1]->dirty) { // Hay que guardar bloque
+                  cache_stat_data.copies_back += block_size_in_words;
+              }
+              cache_stat_data.misses++;
+              cache_stat_data.replacements++;
+              cache_stat_data.demand_fetches+=block_size_in_words;
+              c1->LRU_head[index_c1]->tag = tag_c1;
+              c1->LRU_head[index_c1]->dirty = 0;
+          }
+          break;
+      case TRACE_DATA_STORE:
+          cache_stat_data.accesses++;
+          
+          if(c1->LRU_head[index_c1]==NULL){  // Compulsory miss
+              cache_stat_data.misses++;
+              c1->LRU_head[index_c1] = malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+              c1->LRU_head[index_c1]->tag = tag_c1;
+              c1->LRU_head[index_c1]->dirty = 1;
+              cache_stat_data.demand_fetches += block_size_in_words;
+          } else if(c1->LRU_head[index_c1]->tag != tag_c1){  // Cache miss
+              if(c1->LRU_head[index_c1]->dirty) { // Hay que guardar bloque
+                  cache_stat_data.copies_back += block_size_in_words;
+              }
+              cache_stat_data.misses++;
+              cache_stat_data.replacements++;
+              cache_stat_data.demand_fetches += block_size_in_words;
+              c1->LRU_head[index_c1]->tag = tag_c1;
+              c1->LRU_head[index_c1]->dirty = 1;
+          }
+          else
+              c1->LRU_head[index_c1]->dirty = 1;
+          break;
+  }
+}
+
+
+
+
+
+
+
+
+
 void perform_access(addr, access_type)
   unsigned addr, access_type;
-{
-    static int nl=0;
-    int index;  // para acceder a la linea correspondiente en el set
-    unsigned int bitsSet, bitsOffset,tagMask,tag;
-    int block_size_in_words = cache_block_size/WORD_SIZE;
+{    
+    if(cache_split){
+      perform_access_aux_split(&c1, &c2, addr, access_type);  
+    } else {
+      perform_access_aux_unified(&c1, addr, access_type);
+    }   
 
-    // Calcula tag
-    bitsSet=((int)rint((log((double)(c1.n_sets)))/(log(2.0))));
-    bitsOffset=((int)rint((log((double)(cache_block_size)))/(log(2.0))));
-    tagMask=MASK_ORIG<<(bitsOffset+bitsSet);
-    tag=addr&tagMask;
-    
-    //printf("Dir = %X, tag =%X\n",addr,tag);
-    
-    index = (addr & c1.index_mask) >> c1.index_mask_offset;
-    nl++;
-    
-    switch(access_type){
-        case TRACE_INST_LOAD:
-            cache_stat_inst.accesses++;
-            if(c1.LRU_head[index]==NULL){  // Compulsory miss
-                cache_stat_inst.misses++;
-                c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
-                c1.LRU_head[index]->tag=tag;
-                c1.LRU_head[index]->dirty=0;
-                cache_stat_inst.demand_fetches+=block_size_in_words;
-            } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
-                if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
-                    cache_stat_data.copies_back+=block_size_in_words;
-     //               cache_stat_inst.demand_fetches+=block_size_in_words;
-                }
-    //            printf("Linea: %d. Index: %04x. Remplazo cache con tag viejo: %04X y nuevo %04x\n",nl,index,c1.LRU_head[index]->tag,tag);
-                cache_stat_inst.misses++;
-                cache_stat_inst.replacements++;
-                cache_stat_inst.demand_fetches+=block_size_in_words;
-                c1.LRU_head[index]->tag=tag;
-                c1.LRU_head[index]->dirty=0;
-            }
-            break;
-        case TRACE_DATA_LOAD:
-            cache_stat_data.accesses++;
-            
-            if(c1.LRU_head[index]==NULL){  // Compulsory miss
-                cache_stat_data.misses++;
-                c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
-                c1.LRU_head[index]->tag=tag;
-                c1.LRU_head[index]->dirty=0;
-                cache_stat_data.demand_fetches+=block_size_in_words;
-            } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
-                if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
-                    cache_stat_data.copies_back+=block_size_in_words;
-                }
-                cache_stat_data.misses++;
-                cache_stat_data.replacements++;
-                cache_stat_data.demand_fetches+=block_size_in_words;
-                c1.LRU_head[index]->tag=tag;
-                c1.LRU_head[index]->dirty=0;
-            }
-            break;
-        case TRACE_DATA_STORE:
-            cache_stat_data.accesses++;
-            
-            if(c1.LRU_head[index]==NULL){  // Compulsory miss
-                cache_stat_data.misses++;
-                c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
-                c1.LRU_head[index]->tag=tag;
-                c1.LRU_head[index]->dirty=1;
-                cache_stat_data.demand_fetches+=block_size_in_words;
-            } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
-                if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
-                    cache_stat_data.copies_back+=block_size_in_words;
-                }
-                cache_stat_data.misses++;
-                cache_stat_data.replacements++;
-                cache_stat_data.demand_fetches+=block_size_in_words;
-                c1.LRU_head[index]->tag=tag;
-                c1.LRU_head[index]->dirty=1;
-            }
-            else
-                c1.LRU_head[index]->dirty=1;
-            break;
-    }
+//     static int nl=0;
+//     int index;  // para acceder a la linea correspondiente en el set
+//     unsigned int bitsSet, bitsOffset,tagMask,tag;
+//     int block_size_in_words = cache_block_size/WORD_SIZE;
+// 
+//     // Calcula tag
+//     bitsSet=((int)rint((log((double)(c1.n_sets)))/(log(2.0))));
+//     bitsOffset=((int)rint((log((double)(cache_block_size)))/(log(2.0))));
+//     tagMask=MASK_ORIG<<(bitsOffset+bitsSet);
+//     tag=addr&tagMask;
+    // 
+//     //printf("Dir = %X, tag =%X\n",addr,tag);
+    // 
+//     index = (addr & c1.index_mask) >> c1.index_mask_offset;
+//     nl++;
+    // 
+//     switch(access_type){
+//         case TRACE_INST_LOAD:
+//             cache_stat_inst.accesses++;
+//             if(c1.LRU_head[index]==NULL){  // Compulsory miss
+//                 cache_stat_inst.misses++;
+//                 c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+//                 c1.LRU_head[index]->tag=tag;
+//                 c1.LRU_head[index]->dirty=0;
+//                 cache_stat_inst.demand_fetches+=block_size_in_words;
+//             } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
+//                 if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
+//                     cache_stat_data.copies_back+=block_size_in_words;
+//      //               cache_stat_inst.demand_fetches+=block_size_in_words;
+//                 }
+//     //            printf("Linea: %d. Index: %04x. Remplazo cache con tag viejo: %04X y nuevo %04x\n",nl,index,c1.LRU_head[index]->tag,tag);
+//                 cache_stat_inst.misses++;
+//                 cache_stat_inst.replacements++;
+//                 cache_stat_inst.demand_fetches+=block_size_in_words;
+//                 c1.LRU_head[index]->tag=tag;
+//                 c1.LRU_head[index]->dirty=0;
+//             }
+//             break;
+//         case TRACE_DATA_LOAD:
+//             cache_stat_data.accesses++;
+            // 
+//             if(c1.LRU_head[index]==NULL){  // Compulsory miss
+//                 cache_stat_data.misses++;
+//                 c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+//                 c1.LRU_head[index]->tag=tag;
+//                 c1.LRU_head[index]->dirty=0;
+//                 cache_stat_data.demand_fetches+=block_size_in_words;
+//             } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
+//                 if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
+//                     cache_stat_data.copies_back+=block_size_in_words;
+//                 }
+//                 cache_stat_data.misses++;
+//                 cache_stat_data.replacements++;
+//                 cache_stat_data.demand_fetches+=block_size_in_words;
+//                 c1.LRU_head[index]->tag=tag;
+//                 c1.LRU_head[index]->dirty=0;
+//             }
+//             break;
+//         case TRACE_DATA_STORE:
+//             cache_stat_data.accesses++;
+            // 
+//             if(c1.LRU_head[index]==NULL){  // Compulsory miss
+//                 cache_stat_data.misses++;
+//                 c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
+//                 c1.LRU_head[index]->tag=tag;
+//                 c1.LRU_head[index]->dirty=1;
+//                 cache_stat_data.demand_fetches+=block_size_in_words;
+//             } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
+//                 if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
+//                     cache_stat_data.copies_back+=block_size_in_words;
+//                 }
+//                 cache_stat_data.misses++;
+//                 cache_stat_data.replacements++;
+//                 cache_stat_data.demand_fetches+=block_size_in_words;
+//                 c1.LRU_head[index]->tag=tag;
+//                 c1.LRU_head[index]->dirty=1;
+//             }
+//             else
+//                 c1.LRU_head[index]->dirty=1;
+//             break;
+//     }
 
 }
 /************************************************************/
@@ -264,6 +456,17 @@ void flush()
                 cache_stat_data.copies_back+=block_size_in_words;
             }
         }
+    }
+
+    // Si se tiene un caché dividido, tiene que vaciar el segundo también.
+    if(cache_split) {
+      for(int i=0; i<c2.n_sets; i++){
+        if(c2.LRU_head[i]!=NULL){
+            if(c2.LRU_head[i]->dirty){
+                cache_stat_data.copies_back+=block_size_in_words;
+            }
+        }
+      } 
     }
 
 }
