@@ -81,36 +81,70 @@ void set_cache_param(param, value)
 /************************************************************/
 
 /************************************************************/
-void init_cache()
-{
-    int bitsOffset, bitsSet; // No. de bits para direccionar offset y set
-    int auxMask; // ayuda a generar la mascara del set
+
+void init_cache_aux(cache *c){
+  int bitsOffset, bitsSet; // No. de bits para direccionar offset y set
+  int auxMask; // ayuda a generar la mascara del set
     
   /* initialize the cache, and cache statistics data structures */
-    c1.size= cache_usize;
-    c1.associativity=cache_assoc;
-    c1.n_sets=c1.size /(words_per_block*WORD_SIZE);
-    c1.LRU_head=(Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
-    c1.LRU_tail=NULL;
-    c1.set_contents=NULL;
+  c->size = cache_usize;
+  c->associativity = cache_assoc;
+  c->n_sets = c->size /(words_per_block*WORD_SIZE);
+  c->LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c->n_sets);
+  c->LRU_tail = NULL;
+  c->set_contents = NULL;
    
     
    // Calcula campos de set y de offset
     // Tengo un problema con la macro LOG2
-    bitsSet=((int)rint((log((double)(c1.n_sets)))/(log(2.0))));
+    bitsSet=((int)rint((log((double)(c->n_sets)))/(log(2.0))));
 //    bitsOffset=((int)rint((log((double)(words_per_block)))/(log(2.0))));
     bitsOffset=((int)rint((log((double)(cache_block_size)))/(log(2.0))));
     
     auxMask=(1<<bitsSet)-1;
     
-    c1.index_mask = auxMask<< bitsOffset;
-    c1.index_mask_offset=bitsOffset;  // Cuánto lo debo correr a la derecha
-//    printf("mask=%X\n",c1.index_mask);
+    c->index_mask = auxMask<< bitsOffset;
+    c->index_mask_offset=bitsOffset;  // Cuánto lo debo correr a la derecha
+//    printf("mask=%X\n",c->index_mask);
     
 //    printf("bits set= %d, bits offset = %d mask= %04x\n",bitsSet,bitsOffset,auxMask);
     // Hay que poner los apuntadores a lineas de cache en cero
-    for(int i=0; i<c1.n_sets; i++)
-        c1.LRU_head[i]=NULL;
+    for(int i=0; i< c->n_sets; i++)
+        c->LRU_head[i]=NULL;
+}
+
+void init_cache()
+{
+    init_cache_aux(&c1);
+
+    // int bitsOffset, bitsSet; // No. de bits para direccionar offset y set
+    // int auxMask; // ayuda a generar la mascara del set
+//     
+  // /* initialize the cache, and cache statistics data structures */
+    // c1.size= cache_usize;
+    // c1.associativity=cache_assoc;
+    // c1.n_sets=c1.size /(words_per_block*WORD_SIZE);
+    // c1.LRU_head=(Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
+    // c1.LRU_tail=NULL;
+    // c1.set_contents=NULL;
+//    
+//     
+   // // Calcula campos de set y de offset
+    // // Tengo un problema con la macro LOG2
+    // bitsSet=((int)rint((log((double)(c1.n_sets)))/(log(2.0))));
+// //    bitsOffset=((int)rint((log((double)(words_per_block)))/(log(2.0))));
+    // bitsOffset=((int)rint((log((double)(cache_block_size)))/(log(2.0))));
+//     
+    // auxMask=(1<<bitsSet)-1;
+//     
+    // c1.index_mask = auxMask<< bitsOffset;
+    // c1.index_mask_offset=bitsOffset;  // Cuánto lo debo correr a la derecha
+// //    printf("mask=%X\n",c1.index_mask);
+//     
+// //    printf("bits set= %d, bits offset = %d mask= %04x\n",bitsSet,bitsOffset,auxMask);
+    // // Hay que poner los apuntadores a lineas de cache en cero
+    // for(int i=0; i<c1.n_sets; i++)
+        // c1.LRU_head[i]=NULL;
     
     // Nos aseguramos que los contadores estén en cero
     // Dependiendo del compilador, esto puede o no ser necesario.
