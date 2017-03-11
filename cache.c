@@ -137,7 +137,8 @@ void perform_access(addr, access_type)
     static int nl=0;
     int index;  // para acceder a la linea correspondiente en el set
     unsigned int bitsSet, bitsOffset,tagMask,tag;
-    
+    int block_size_in_words = cache_block_size/WORD_SIZE;
+
     // Calcula tag
     bitsSet=((int)rint((log((double)(c1.n_sets)))/(log(2.0))));
     bitsOffset=((int)rint((log((double)(cache_block_size)))/(log(2.0))));
@@ -157,16 +158,16 @@ void perform_access(addr, access_type)
                 c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
                 c1.LRU_head[index]->tag=tag;
                 c1.LRU_head[index]->dirty=0;
-                cache_stat_inst.demand_fetches+=4;
+                cache_stat_inst.demand_fetches+=block_size_in_words;
             } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
                 if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
-                    cache_stat_data.copies_back+=4;
-     //               cache_stat_inst.demand_fetches+=4;
+                    cache_stat_data.copies_back+=block_size_in_words;
+     //               cache_stat_inst.demand_fetches+=block_size_in_words;
                 }
     //            printf("Linea: %d. Index: %04x. Remplazo cache con tag viejo: %04X y nuevo %04x\n",nl,index,c1.LRU_head[index]->tag,tag);
                 cache_stat_inst.misses++;
                 cache_stat_inst.replacements++;
-                cache_stat_inst.demand_fetches+=4;
+                cache_stat_inst.demand_fetches+=block_size_in_words;
                 c1.LRU_head[index]->tag=tag;
                 c1.LRU_head[index]->dirty=0;
             }
@@ -179,14 +180,14 @@ void perform_access(addr, access_type)
                 c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
                 c1.LRU_head[index]->tag=tag;
                 c1.LRU_head[index]->dirty=0;
-                cache_stat_data.demand_fetches+=4;
+                cache_stat_data.demand_fetches+=block_size_in_words;
             } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
                 if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
-                    cache_stat_data.copies_back+=4;
+                    cache_stat_data.copies_back+=block_size_in_words;
                 }
                 cache_stat_data.misses++;
                 cache_stat_data.replacements++;
-                cache_stat_data.demand_fetches+=4;
+                cache_stat_data.demand_fetches+=block_size_in_words;
                 c1.LRU_head[index]->tag=tag;
                 c1.LRU_head[index]->dirty=0;
             }
@@ -199,14 +200,14 @@ void perform_access(addr, access_type)
                 c1.LRU_head[index]=malloc(sizeof(cache_line));  // Deberias validar que hay memoria!!
                 c1.LRU_head[index]->tag=tag;
                 c1.LRU_head[index]->dirty=1;
-                cache_stat_data.demand_fetches+=4;
+                cache_stat_data.demand_fetches+=block_size_in_words;
             } else if(c1.LRU_head[index]->tag!=tag){  // Cache miss
                 if(c1.LRU_head[index]->dirty) { // Hay que guardar bloque
-                    cache_stat_data.copies_back+=4;
+                    cache_stat_data.copies_back+=block_size_in_words;
                 }
                 cache_stat_data.misses++;
                 cache_stat_data.replacements++;
-                cache_stat_data.demand_fetches+=4;
+                cache_stat_data.demand_fetches+=block_size_in_words;
                 c1.LRU_head[index]->tag=tag;
                 c1.LRU_head[index]->dirty=1;
             }
@@ -221,12 +222,12 @@ void perform_access(addr, access_type)
 /************************************************************/
 void flush()
 {
-
+  int block_size_in_words = cache_block_size/WORD_SIZE;
   /* flush the cache */
     for(int i=0; i<c1.n_sets; i++){
         if(c1.LRU_head[i]!=NULL){
             if(c1.LRU_head[i]->dirty){
-                cache_stat_data.copies_back+=4;
+                cache_stat_data.copies_back+=block_size_in_words;
             }
         }
     }
