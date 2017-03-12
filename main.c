@@ -138,7 +138,8 @@ void play_trace(inFile)
 
   num_inst = 0;
   while(read_trace_element(inFile, &access_type, &addr)) {
-
+    printf("Número de línea: %d\n", num_inst);
+    
     switch (access_type) {
     case TRACE_DATA_LOAD:
     case TRACE_DATA_STORE:
