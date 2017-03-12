@@ -215,8 +215,8 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               	printf("\n\t\t\t\tCreó nuevo item\n");
               	new_item->tag = tag;
               	new_item->dirty = 0;
-              	new_item->LRU_next = (Pcache_line)NULL;
-              	new_item->LRU_prev = (Pcache_line)NULL;
+              	// new_item->LRU_next = (Pcache_line)NULL;
+              	// new_item->LRU_prev = (Pcache_line)NULL;
 
               	// elimina último elemento
               	printf("\n\t\t\t\tVa a eliminar cola\n");
@@ -233,26 +233,27 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               int tag_found = FALSE; // Si encuentra el tag en algún nodo
               Pcache_line cl = c->LRU_head[index];
               printf("\n\tSet contents: %d\n", c->set_contents[index]);
-              printf("\n\ttag: %d\n", tag_found);
               printf("\n\t\tHay espacio en la lista.\n");
               
               for(int i = 0; i < c->set_contents[index]; i ++){
-              	if(cl->LRU_next == NULL) break;
-              	cl = cl->LRU_next; // se mueve al siguiente nodo
                 if(cl->tag == tag) {
                   tag_found = TRUE;
                   printf("\n\t\t\tSe va a salir de la lista por tag\n");
                   break;
                 }
+                if(cl->LRU_next == NULL) break;
+              	cl = cl->LRU_next; // se mueve al siguiente nodo
               }
 
               if(tag_found){ 
+              	printf("\n\t\tEncontró tag (hit).\n");
               	// si encontró el tag, se debe pasar el nodo al principio de la lista
               	Pcache_line aux = cl;
               	delete(&c->LRU_head[index], &c->LRU_tail[index], cl);
               	insert(&c->LRU_head[index], &c->LRU_tail[index], aux);
 
               } else {
+              	printf("\n\t\tNo encontró tag (miss).\n");
               	cache_stat_inst.demand_fetches += block_size_in_words;
               	cache_stat_inst.misses++;
               	// Si el tag no estaba, crea nuevo elemento para insertar 
@@ -260,8 +261,8 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               	Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
               	new_item->tag = tag;
               	new_item->dirty = 0;
-              	new_item->LRU_next = (Pcache_line)NULL;
-              	new_item->LRU_prev = (Pcache_line)NULL;
+              	// new_item->LRU_next = (Pcache_line)NULL;
+              	// new_item->LRU_prev = (Pcache_line)NULL;
 
               	// inserta el nuevo elemento
               	insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
@@ -401,17 +402,16 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               int tag_found = FALSE; // Si encuentra el tag en algún nodo
               Pcache_line cl = c->LRU_head[index];
               printf("\n\tSet contents: %d\n", c->set_contents[index]);
-              printf("\n\ttag: %d\n", tag_found);
               printf("\n\t\tHay espacio en la lista.\n");
               
               for(int i = 0; i < c->set_contents[index]; i ++){
-              	if(cl->LRU_next == NULL) break;
-              	cl = cl->LRU_next; // se mueve al siguiente nodo
                 if(cl->tag == tag) {
                   tag_found = TRUE;
                   printf("\n\t\t\tSe va a salir de la lista por tag\n");
                   break;
                 }
+                if(cl->LRU_next == NULL) break;
+              	cl = cl->LRU_next; // se mueve al siguiente nodo
               }
 
               if(tag_found){ 
@@ -598,17 +598,16 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               int tag_found = FALSE; // Si encuentra el tag en algún nodo
               Pcache_line cl = c->LRU_head[index];
               printf("\n\tSet contents: %d\n", c->set_contents[index]);
-              printf("\n\ttag: %d\n", tag_found);
               printf("\n\t\tHay espacio en la lista.\n");
               
               for(int i = 0; i < c->set_contents[index]; i ++){
-              	if(cl->LRU_next == NULL) break;
-              	cl = cl->LRU_next; // se mueve al siguiente nodo
                 if(cl->tag == tag) {
                   tag_found = TRUE;
                   printf("\n\t\t\tSe va a salir de la lista por tag\n");
                   break;
                 }
+                if(cl->LRU_next == NULL) break;
+              	cl = cl->LRU_next; // se mueve al siguiente nodo
               }
 
               if(tag_found){ 
