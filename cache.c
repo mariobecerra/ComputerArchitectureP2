@@ -598,31 +598,27 @@ void flush()
 {
   int block_size_in_words = cache_block_size/WORD_SIZE;
   Pcache_line cl;
-    for(int i=0; i < c1.n_sets; i++){
-        if(c1.LRU_head[i] != NULL){
-        	cl = c1.LRU_head[i];
-        	for(int i = 0; i < c1.set_contents[i]; i++){
-        	  if(cl->dirty) cache_stat_data.copies_back += block_size_in_words;
-        		cl = cl->LRU_next; // se mueve al siguiente nodo
-        	}
-        }
-    }
 
-    // Si se tiene un caché dividido, tiene que vaciar el segundo también.
-    if(cache_split) {
-      Pcache_line cl;
-        for(int i=0; i < c2.n_sets; i++){
-            if(c2.LRU_head[i] != NULL){
-            	cl = c2.LRU_head[i];
-            	for(int i = 0; i < c2.set_contents[i]; i++){
-            	  if(cl->dirty) cache_stat_data.copies_back += block_size_in_words;
-            		cl = cl->LRU_next; // se mueve al siguiente nodo
-            	}
-            }
-        }
-    }
+  for(int i=0; i < c1.n_sets; i++){
+  	cl = c1.LRU_head[i];
+  	for(int j = 0; j < c1.set_contents[i]; j++){
+  	  if(cl->dirty) cache_stat_data.copies_back += block_size_in_words;
+  		cl = cl->LRU_next; // se mueve al siguiente nodo
+  	}
+  }
 
+  // Si se tiene un caché dividido, tiene que vaciar el segundo también.
+  if(cache_split) {
+    for(int i=0; i < c2.n_sets; i++){
+    	cl = c2.LRU_head[i];
+    	for(int j = 0; j < c2.set_contents[i]; j++){
+    	  if(cl->dirty) cache_stat_data.copies_back += block_size_in_words;
+    		cl = cl->LRU_next; // se mueve al siguiente nodo
+    	}
+    }
+  }
 }
+
 /************************************************************/
 
 /************************************************************/
