@@ -157,92 +157,82 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
   tag = addr & tagMask;
 
   index = (addr & c->index_mask) >> c->index_mask_offset;
-  // printf("Index: %d\n", index);
+  
   nl++;
   
   switch(access_type){
       case TRACE_INST_LOAD:
-          // printf("\n\tCaso: %d (trace inst load)\n", TRACE_INST_LOAD);
+          
           cache_stat_inst.accesses++;
 
           if(c->LRU_head[index] == NULL){  // Lista vacía
-              // printf("\n\t\tCompulsory miss\n");
+              
               cache_stat_inst.misses++;
               cache_stat_inst.demand_fetches += block_size_in_words;
               // c->LRU_head[index] = malloc(sizeof(cache_line)); 
               // c->LRU_head[index]->tag = tag;
               // c->LRU_head[index]->dirty = 0;
-              // printf("\n\t\t\t\tVa a crear nuevo item\n");
+              
               Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
-              // printf("\n\t\t\t\tCreó nuevo item\n");
+              
               new_item->tag = tag;
               new_item->dirty = 0;
               c->set_contents[index] = 1;
               insert(&c->LRU_head[index], &c->LRU_tail[index], new_item);
           } else { // Si la lista no está vacía
-          	// printf("\n\tLista no vacía\n");
+          	
 
             if(c->set_contents[index] == c->associativity){
-            	// printf("\n\tSet contents (número de nodos): %d\n", c->set_contents[index]);
-            	// printf("\n\t\tLista llena.\n");
+            	
+            	
               
               // Si no hay espacio en la lista
-              // printf("\n\t\t\tAsigna a cl\n");
+              
               Pcache_line cl = c->LRU_head[index];
               int tag_found = FALSE; // Si encuentra el tag en algún nodo
-              
-              // printf("\n\t\t\tEntra a for\n");
-              // for(int i = 0; i < c->set_contents[index]; i ++){
-              // 	if(cl->LRU_next == NULL) break;
-              // 	cl = cl->LRU_next; // se mueve al siguiente nodo
-              //   if(cl->tag == tag) {
-              //     tag_found = TRUE;
-              //     // printf("\n\t\t\tSe va a salir de la lista por tag\n");
-              //     break;
-              //   }
-              // }
+
               for(int i = 0; i < c->set_contents[index]; i ++){
                 if(cl->tag == tag) {
                   tag_found = TRUE;
-                  // printf("\n\t\t\tSe va a salir de la lista por tag\n");
+                  
                   break;
                 }
                 if(cl->LRU_next == NULL) break;
               	cl = cl->LRU_next; // se mueve al siguiente nodo
               }
-              // printf("\n\t\t\tSale de for\n");
+              
 
               if(tag_found){ // hit
-              	// printf("\n\t\t\tFue hit\n");
+              	
               	// si encontró el tag, se debe pasar el nodo al principio de la lista
               	delete(&c->LRU_head[index], &c->LRU_tail[index], cl);
               	insert(&c->LRU_head[index], &c->LRU_tail[index], cl);
 
               } else { // miss
-              	// printf("\n\t\t\tFue miss\n");
+              	
               	cache_stat_inst.demand_fetches += block_size_in_words;
               	cache_stat_inst.misses++;
               	cache_stat_inst.replacements++;
               	// Si el tag no estaba, debe eliminar el nodo de la cola
               	// y crear uno nuevo para insertar en el head
 
-              	// printf("\n\t\t\t\tVa a crear nuevo item\n");
+              	
               	Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
-              	// printf("\n\t\t\t\tCreó nuevo item\n");
+              	
               	new_item->tag = tag;
               	new_item->dirty = 0;
               	// new_item->LRU_next = (Pcache_line)NULL;
               	// new_item->LRU_prev = (Pcache_line)NULL;
 
               	// inserta el nuevo elemento
-              	// printf("\n\t\t\t\tVa a insertar nuevo item\n");
               	insert(&c->LRU_head[index], &c->LRU_tail[index], new_item);
-              	// printf("\n\t\t\t\tInsertó nuevo item.\n");
+              	
               	// elimina último elemento
-              	// printf("\n\t\t\t\tTag de cola: %d\n", c->LRU_tail[index]->tag);
-              	// printf("\n\t\t\t\tVa a eliminar cola\n");
+              	if(c->LRU_tail[index]->dirty) { // Hay que guardar bloque
+              	    cache_stat_data.copies_back += block_size_in_words;
+              	}
               	delete(&c->LRU_head[index], &c->LRU_tail[index], c->LRU_tail[index]);
-              	// printf("\n\t\t\t\tEliminó cola\n");
+              	
               }
 
 
@@ -250,13 +240,11 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               // Recorrer lista para ver si está el tag
               int tag_found = FALSE; // Si encuentra el tag en algún nodo
               Pcache_line cl = c->LRU_head[index];
-              // printf("\n\tSet contents (número de nodos): %d\n", c->set_contents[index]);
-              // printf("\n\t\tHay espacio en la lista.\n");
               
               for(int i = 0; i < c->set_contents[index]; i ++){
                 if(cl->tag == tag) {
                   tag_found = TRUE;
-                  // printf("\n\t\t\tSe va a salir de la lista por tag\n");
+                  
                   break;
                 }
                 if(cl->LRU_next == NULL) break;
@@ -264,15 +252,13 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               }
 
               if(tag_found){ 
-              	// printf("\n\t\tEncontró tag (hit).\n");
+              	
               	// si encontró el tag, se debe pasar el nodo al principio de la lista
-              	// printf("\n\t\tVa a mover el elemento al principio de la lista.\n");
               	delete(&c->LRU_head[index], &c->LRU_tail[index], cl);
               	insert(&c->LRU_head[index], &c->LRU_tail[index], cl);
-              	// printf("\n\t\tYa lo movió.\n");
 
               } else {
-              	// printf("\n\t\tNo encontró tag (miss).\n");
+              	
               	cache_stat_inst.demand_fetches += block_size_in_words;
               	cache_stat_inst.misses++;
               	// Si el tag no estaba, crea nuevo elemento para insertar 
@@ -284,13 +270,13 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               	// new_item->LRU_prev = (Pcache_line)NULL;
 
               	// inserta el nuevo elemento
-              	// printf("\n\t\t\t\tTag de cola: %d\n", c->LRU_tail[index]->tag);
+              	
               	insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
-              	// printf("\n\t\tInsertó nuevo elemento.\n");
+              	
 
               	// Aumenta el contador de número de nodos
               	c->set_contents[index]++; 
-              	// printf("\n\t\t\tAhora tiene %d nodos.\n", c->set_contents[index]);
+              	
               }
 
 
@@ -299,113 +285,38 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
           }
           break;
 
-
-
-
-
-            // printf("\nRecorre lista\n");
-            // Pcache_line cl = c->LRU_head[index];
-            // int tag_found = FALSE;
-            // int num_nodes = 1;
-            // while(TRUE){
-            //   printf("\n\tRecorriendo lista: %d\n", num_nodes - 1);
-            //   if(cl->LRU_next == NULL) {
-            //     printf("\n\t\tSe va a salir de la lista por NULL\n");
-            //     break;
-            //   } else {
-            //     num_nodes++;  
-            //     cl = cl->LRU_next; // se mueve al siguiente nodo
-            //     if(cl->tag == tag) {
-            //       tag_found = TRUE;
-            //       printf("\n\t\tSe va a salir de la lista por tag\n");
-            //       break;
-            //     }
-            //   }
-            // }
-            // if(!tag_found){ // Miss
-            //   printf("\nHubo miss (no encontró tag)\n");
-            //   cache_stat_inst.misses++;
-            //   cache_stat_inst.demand_fetches += block_size_in_words;
-            //   if(num_nodes == c->associativity){ // Si no hay espacio en la lista
-            //     // reemplazar
-            //     printf("\nReemplazar\n");
-            //     cache_stat_inst.replacements++;
-
-            //     // si el dirty bit de la cola está sucio, escribe en memoria
-            //     printf("si el dirty bit de la cola está sucio, escribe en memoria\n");
-            //     if(c->LRU_tail[index]->dirty) cache_stat_inst.copies_back++; 
-            //     printf("bebebebe");
-
-            //     // Elimina la cola
-            //     printf("\nVa a eliminar...");
-            //     delete(&(c->LRU_head[index]), &(c->LRU_tail[index]), c->LRU_tail[index]);
-            //     printf("Eliminó\n");
-
-            //     // Crea nuevo elemento para insertar al principio de la lista
-            //     Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
-            //     new_item->tag = tag;
-            //     new_item->dirty = 0;
-            //     new_item->LRU_next = (Pcache_line)NULL;
-            //     new_item->LRU_prev = (Pcache_line)NULL;
-            //     // inserta el nuevo elemento
-            //     insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
-
-            //   } else { // Si sí hay espacio en la lista
-            //     // agregar nodo
-            //     printf("\nVa a agregar nodo\n");
-
-            //     // Crea nuevo elemento para insertar al principio de la lista
-            //     Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
-            //     new_item->tag = tag;
-            //     new_item->dirty = 0;
-            //     new_item->LRU_next = (Pcache_line)NULL;
-            //     new_item->LRU_prev = (Pcache_line)NULL;
-
-            //     // inserta el nuevo elemento
-            //     insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
-            //   }  
-            //} 
-
       case TRACE_DATA_LOAD:
-          // printf("\n\tCaso: %d (trace data load)\n", TRACE_DATA_LOAD);
+          
           cache_stat_data.accesses++;
 
           if(c->LRU_head[index] == NULL){  // Lista vacía
-              // printf("\n\tCompulsory miss\n");
+              
               cache_stat_data.misses++;
               cache_stat_data.demand_fetches += block_size_in_words;
               // c->LRU_head[index] = malloc(sizeof(cache_line)); 
               // c->LRU_head[index]->tag = tag;
               // c->LRU_head[index]->dirty = 0;
               // c->set_contents[index] = 1;
-              // printf("\n\t\t\t\tVa a crear nuevo item\n");
+              
               Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
-              // printf("\n\t\t\t\tCreó nuevo item\n");
+              
               new_item->tag = tag;
               new_item->dirty = 0;
               c->set_contents[index] = 1;
               insert(&c->LRU_head[index], &c->LRU_tail[index], new_item);
 
           } else { // Si la lista no está vacía
-          	// printf("\n\tLista no vacía\n");
+          	
             if(c->set_contents[index] == c->associativity){
-            	// printf("\n\t\tLista llena.\n");
+            	
               // Si no hay espacio en la lista
               Pcache_line cl = c->LRU_head[index];
               int tag_found = FALSE; // Si encuentra el tag en algún nodo
-              // for(int i = 0; i < c->set_contents[index]; i ++){
-              // 	if(cl->LRU_next == NULL) break;
-              // 	cl = cl->LRU_next; // se mueve al siguiente nodo
-              //   if(cl->tag == tag) {
-              //     tag_found = TRUE;
-              //     printf("\n\t\t\tSe va a salir de la lista por tag\n");
-              //     break;
-              //   }
-              // }
+
               for(int i = 0; i < c->set_contents[index]; i ++){
                 if(cl->tag == tag) {
                   tag_found = TRUE;
-                  // printf("\n\t\t\tSe va a salir de la lista por tag\n");
+                  
                   break;
                 }
                 if(cl->LRU_next == NULL) break;
@@ -429,6 +340,10 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               	new_item->LRU_next = (Pcache_line)NULL;
               	new_item->LRU_prev = (Pcache_line)NULL;
 
+              	if(c->LRU_tail[index]->dirty) { // Hay que guardar bloque
+              	    cache_stat_data.copies_back += block_size_in_words;
+              	}
+
               	// elimina último elemento
               	delete(&c->LRU_head[index], &c->LRU_tail[index], c->LRU_tail[index]);
               	// inserta el nuevo elemento
@@ -440,13 +355,11 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               // Recorrer lista para ver si está el tag
               int tag_found = FALSE; // Si encuentra el tag en algún nodo
               Pcache_line cl = c->LRU_head[index];
-              // printf("\n\tSet contents (número de nodos): %d\n", c->set_contents[index]);
-              // printf("\n\t\tHay espacio en la lista.\n");
               
               for(int i = 0; i < c->set_contents[index]; i ++){
                 if(cl->tag == tag) {
                   tag_found = TRUE;
-                  // printf("\n\t\t\tSe va a salir de la lista por tag\n");
+                  
                   break;
                 }
                 if(cl->LRU_next == NULL) break;
@@ -470,7 +383,7 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               	new_item->LRU_prev = (Pcache_line)NULL;
 
               	// inserta el nuevo elemento
-              	// printf("\n\t\t\t\tTag de cola: %d\n", c->LRU_tail[index]->tag);
+              	
               	insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
 
               	// Aumenta el contador de número de nodos
@@ -484,135 +397,38 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
           break;
 
 
-
-          // cache_stat_data.accesses++;
-          // if(c->LRU_head[index] == NULL){  // Compulsory miss
-          //     printf("\n\tCompulsory miss\n");
-          //     cache_stat_data.misses++;
-          //     c->LRU_head[index]=malloc(sizeof(cache_line)); 
-          //     c->LRU_head[index]->tag=tag;
-          //     c->LRU_head[index]->dirty=0;
-          //     cache_stat_data.demand_fetches+=block_size_in_words;
-          // } else {
-          //   printf("\n\tRecorre lista\n");
-          //   Pcache_line cl = c->LRU_head[index];
-          //   int tag_found = FALSE;
-          //   int num_nodes = 1;
-          //   while(TRUE){
-          //     printf("\n\t\tRecorriendo lista: %d\n", num_nodes - 1);
-          //     if(cl->LRU_next == NULL) {
-          //       printf("\n\t\t\tSe va a salir de la lista por NULL\n");
-          //       break;
-          //     } else {
-          //       num_nodes++;  
-          //       cl = cl->LRU_next; // se mueve al siguiente nodo
-          //       if(cl->tag == tag) {
-          //         tag_found = TRUE;
-          //         printf("\n\t\t\tSe va a salir de la lista por tag\n");
-          //         break;
-          //       }
-          //     }
-          //   }
-          //   if(!tag_found){ // Miss
-          //     printf("\n\tHubo miss (no encontró tag)\n");
-          //     cache_stat_data.misses++;
-          //     cache_stat_data.demand_fetches += block_size_in_words;
-          //     if(num_nodes == c->associativity){ // Si no hay espacio en la lista
-          //       // reemplazar
-          //       printf("\n\t\tVa a reemplazar\n");
-          //       cache_stat_data.replacements++;
-
-          //       // si el dirty bit de la cola está sucio, escribe en memoria
-          //       if(c->LRU_tail[index]->dirty) cache_stat_data.copies_back++; 
-
-          //       // Elimina la cola
-          //       delete(&(c->LRU_head[index]), &(c->LRU_tail[index]), c->LRU_tail[index]);
-
-          //       // Crea nuevo elemento para insertar al principio de la lista
-          //       Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
-          //       new_item->tag = tag;
-          //       new_item->dirty = 0;
-          //       new_item->LRU_next = (Pcache_line)NULL;
-          //       new_item->LRU_prev = (Pcache_line)NULL;
-          //       // inserta el nuevo elemento
-          //       insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
-
-          //     } else { // Si sí hay espacio en la lista
-          //       // agregar nodo
-          //       printf("\n\t\tVa a agregar nodo\n");
-          //       // Crea nuevo elemento para insertar al principio de la lista
-          //       Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
-          //       new_item->tag = tag;
-          //       new_item->dirty = 0;
-          //       new_item->LRU_next = (Pcache_line)NULL;
-          //       new_item->LRU_prev = (Pcache_line)NULL;
-
-          //       // inserta el nuevo elemento
-          //       insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
-          //     }  
-          //   } 
-          // }
-          // break;
-
-//           cache_stat_data.accesses++;
-//           if(c->LRU_head[index]==NULL){  // Compulsory miss
-//               cache_stat_data.misses++;
-//               c->LRU_head[index]=malloc(sizeof(cache_line)); 
-//               c->LRU_head[index]->tag=tag;
-//               c->LRU_head[index]->dirty=0;
-//               cache_stat_data.demand_fetches+=block_size_in_words;
-//           } else if(c->LRU_head[index]->tag!=tag){  // Cache miss
-//               if(c->LRU_head[index]->dirty) { // Hay que guardar bloque
-//                   cache_stat_data.copies_back+=block_size_in_words;
-//               }
-//               cache_stat_data.misses++;
-//               cache_stat_data.replacements++;
-//               cache_stat_data.demand_fetches+=block_size_in_words;
-//               c->LRU_head[index]->tag=tag;
-//               c->LRU_head[index]->dirty=0;
-//           }
-//           break;
-
       case TRACE_DATA_STORE:
-          // printf("\n\tCaso: %d (trace data store)\n", TRACE_DATA_STORE);
+          
           cache_stat_data.accesses++;
 
           if(c->LRU_head[index] == NULL){  // Lista vacía
-              // printf("\n\tCompulsory miss\n");
+              
               cache_stat_data.misses++;
               cache_stat_data.demand_fetches += block_size_in_words;
               // c->LRU_head[index] = malloc(sizeof(cache_line)); 
               // c->LRU_head[index]->tag = tag;
               // c->LRU_head[index]->dirty = 1;
               // c->set_contents[index] = 1;
-              // printf("\n\t\t\t\tVa a crear nuevo item\n");
+              
               Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
-              // printf("\n\t\t\t\tCreó nuevo item\n");
+              
               new_item->tag = tag;
-              new_item->dirty = 0;
+              new_item->dirty = 1;
               c->set_contents[index] = 1;
               insert(&c->LRU_head[index], &c->LRU_tail[index], new_item);
           } else { // Si la lista no está vacía
-          	// printf("\n\tLista no vacía\n");
+          	
 
             if(c->set_contents[index] == c->associativity){
-            	// printf("\n\t\tLista llena.\n");
+            	
               // Si no hay espacio en la lista
               Pcache_line cl = c->LRU_head[index];
               int tag_found = FALSE; // Si encuentra el tag en algún nodo
-              // for(int i = 0; i < c->set_contents[index]; i ++){
-              // 	if(cl->LRU_next == NULL) break;
-              // 	cl = cl->LRU_next; // se mueve al siguiente nodo
-              //   if(cl->tag == tag) {
-              //     tag_found = TRUE;
-              //     printf("\n\t\t\tSe va a salir de la lista por tag\n");
-              //     break;
-              //   }
-              // }
+              
               for(int i = 0; i < c->set_contents[index]; i ++){
                 if(cl->tag == tag) {
                   tag_found = TRUE;
-                  // printf("\n\t\t\tSe va a salir de la lista por tag\n");
+                  
                   break;
                 }
                 if(cl->LRU_next == NULL) break;
@@ -625,6 +441,7 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               	insert(&c->LRU_head[index], &c->LRU_tail[index], cl);
 
               	// Hacer if de si el bit estaba clean, ponerlo dirty
+              	c->LRU_head[index]->dirty = 1;
 
               } else { // miss
               	cache_stat_data.demand_fetches += block_size_in_words;
@@ -638,27 +455,26 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               	new_item->LRU_next = (Pcache_line)NULL;
               	new_item->LRU_prev = (Pcache_line)NULL;
 
+              	// Hacer if de si el bit estaba dirty, aumentar el número de copiesback
+              	if(c->LRU_tail[index]->dirty) cache_stat_data.copies_back+=block_size_in_words;
+
               	// elimina último elemento
               	delete(&c->LRU_head[index], &c->LRU_tail[index], c->LRU_tail[index]);
               	// inserta el nuevo elemento
               	insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
 
-              	// Hacer if de si el bit estaba dirty, aumentar el número de copiesback
-
               }
-
-
             } else { // Si sí hay espacio en la lista
               // Recorrer lista para ver si está el tag
               int tag_found = FALSE; // Si encuentra el tag en algún nodo
               Pcache_line cl = c->LRU_head[index];
-              // printf("\n\tSet contents (número de nodos): %d\n", c->set_contents[index]);
-              // printf("\n\t\tHay espacio en la lista.\n");
+              
+              
               
               for(int i = 0; i < c->set_contents[index]; i ++){
                 if(cl->tag == tag) {
                   tag_found = TRUE;
-                  // printf("\n\t\t\tSe va a salir de la lista por tag\n");
+                  
                   break;
                 }
                 if(cl->LRU_next == NULL) break;
@@ -671,6 +487,7 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               	insert(&c->LRU_head[index], &c->LRU_tail[index], cl);
 
               	// Hacer if de si el bit estaba clean, ponerlo dirty
+              	if(!(c->LRU_head[index]->dirty)) c->LRU_head[index]->dirty = 1;
 
               } else {
               	cache_stat_data.demand_fetches += block_size_in_words;
@@ -679,14 +496,12 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
               	// al principio de la lista
               	Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
               	new_item->tag = tag;
-              	new_item->dirty = 0;
+              	new_item->dirty = 1;
               	new_item->LRU_next = (Pcache_line)NULL;
               	new_item->LRU_prev = (Pcache_line)NULL;
 
               	// inserta el nuevo elemento
               	insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
-
-              	// Hacer if de si el bit estaba dirty, aumentar el número de copiesback
 
               	// Aumenta el contador de número de nodos
               	c->set_contents[index]++; 
@@ -697,100 +512,6 @@ void perform_access_aux_unified(cache *c, unsigned addr, unsigned access_type){
           }
 
           break;
-
-
-
-          // cache_stat_data.accesses++;
-
-          // if(c->LRU_head[index] == NULL){  // Compulsory miss
-          //   printf("\n\tCompulsory miss\n");
-          //     cache_stat_data.misses++;
-          //     c->LRU_head[index]=malloc(sizeof(cache_line)); 
-          //     c->LRU_head[index]->tag = tag;
-          //     c->LRU_head[index]->dirty = 1;
-          //     cache_stat_data.demand_fetches += block_size_in_words;
-          // } else {
-          //   printf("\n\tRecorre lista\n");
-          //   Pcache_line cl = c->LRU_head[index];
-          //   int tag_found = FALSE;
-          //   int num_nodes = 1;
-          //   while(TRUE){
-          //     printf("\n\t\tRecorriendo lista: %d\n", num_nodes - 1);
-          //     if(cl->LRU_next == NULL) {
-          //       break;
-          //     } else {
-          //       num_nodes++;  
-          //       cl = cl->LRU_next; // se mueve al siguiente nodo
-          //       if(cl->tag == tag) {
-          //         tag_found = TRUE;
-          //         cl->dirty = 1;
-          //         break;
-          //       }
-          //     }
-          //   }
-          //   if(!tag_found){ // Miss
-          //     printf("\n\tHubo miss (no encontró tag)\n");
-          //     cache_stat_data.misses++;
-          //     cache_stat_data.demand_fetches += block_size_in_words;
-          //     if(num_nodes == c->associativity){ // Si no hay espacio en la lista
-          //       // reemplazar
-          //       printf("\n\t\tVa a reemplazar\n");
-          //       cache_stat_data.replacements++;
-
-          //       // si el dirty bit de la cola está sucio, escribe en memoria
-          //       if(c->LRU_tail[index]->dirty) cache_stat_data.copies_back++; 
-
-          //       // Elimina la cola
-          //       delete(&(c->LRU_head[index]), &(c->LRU_tail[index]), c->LRU_tail[index]);
-
-          //       // Crea nuevo elemento para insertar al principio de la lista
-          //       Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
-          //       new_item->tag = tag;
-          //       new_item->dirty = 1;
-          //       new_item->LRU_next = (Pcache_line)NULL;
-          //       new_item->LRU_prev = (Pcache_line)NULL;
-          //       // inserta el nuevo elemento
-          //       insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
-
-          //     } else { // Si sí hay espacio en la lista
-          //       // agregar nodo
-          //       printf("\n\t\tVa a agregar nodo\n");
-          //       // Crea nuevo elemento para insertar al principio de la lista
-          //       Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
-          //       new_item->tag = tag;
-          //       new_item->dirty = 1;
-          //       new_item->LRU_next = (Pcache_line)NULL;
-          //       new_item->LRU_prev = (Pcache_line)NULL;
-
-          //       // inserta el nuevo elemento
-          //       insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
-          //     }  
-          //   } 
-          // }
-          // break;
-
-
-          // cache_stat_data.accesses++;
-          
-          // if(c->LRU_head[index]==NULL){  // Compulsory miss
-          //     cache_stat_data.misses++;
-          //     c->LRU_head[index]=malloc(sizeof(cache_line));  
-          //     c->LRU_head[index]->tag=tag;
-          //     c->LRU_head[index]->dirty=1;
-          //     cache_stat_data.demand_fetches+=block_size_in_words;
-          // } else if(c->LRU_head[index]->tag!=tag){  // Cache miss
-          //     if(c->LRU_head[index]->dirty) { // Hay que guardar bloque
-          //         cache_stat_data.copies_back+=block_size_in_words;
-          //     }
-          //     cache_stat_data.misses++;
-          //     cache_stat_data.replacements++;
-          //     cache_stat_data.demand_fetches+=block_size_in_words;
-          //     c->LRU_head[index]->tag=tag;
-          //     c->LRU_head[index]->dirty=1;
-          // }
-          // else
-          //     c->LRU_head[index]->dirty=1;
-          // break;
   }
 }
 
@@ -902,24 +623,29 @@ void perform_access(addr, access_type)
 void flush()
 {
   int block_size_in_words = cache_block_size/WORD_SIZE;
-  /* flush the cache */
-    for(int i=0; i<c1.n_sets; i++){
-        if(c1.LRU_head[i]!=NULL){
-            if(c1.LRU_head[i]->dirty){
-                cache_stat_data.copies_back+=block_size_in_words;
-            }
+  Pcache_line cl;
+    for(int i=0; i < c1.n_sets; i++){
+        if(c1.LRU_head[i] != NULL){
+        	cl = c1.LRU_head[i];
+        	for(int i = 0; i < c1.set_contents[i]; i++){
+        	  if(cl->dirty) cache_stat_data.copies_back += block_size_in_words;
+        		cl = cl->LRU_next; // se mueve al siguiente nodo
+        	}
         }
     }
 
     // Si se tiene un caché dividido, tiene que vaciar el segundo también.
     if(cache_split) {
-      for(int i=0; i<c2.n_sets; i++){
-        if(c2.LRU_head[i]!=NULL){
-            if(c2.LRU_head[i]->dirty){
-                cache_stat_data.copies_back+=block_size_in_words;
+      Pcache_line cl;
+        for(int i=0; i < c2.n_sets; i++){
+            if(c2.LRU_head[i] != NULL){
+            	cl = c2.LRU_head[i];
+            	for(int i = 0; i < c2.set_contents[i]; i++){
+            	  if(cl->dirty) cache_stat_data.copies_back += block_size_in_words;
+            		cl = cl->LRU_next; // se mueve al siguiente nodo
+            	}
             }
         }
-      } 
     }
 
 }
