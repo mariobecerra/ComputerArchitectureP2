@@ -159,7 +159,7 @@ void perform_access_instruction_load(
 	    cache_stat_inst.misses++;
 	    cache_stat_inst.demand_fetches += block_size_in_words;
 	    
-	    Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
+	    Pcache_line new_item = malloc(sizeof(cache_line));
 	    
 	    new_item->tag = tag;
 	    new_item->dirty = 0;
@@ -180,7 +180,7 @@ void perform_access_instruction_load(
 	        
 	        break;
 	      }
-	      if(cl->LRU_next == NULL) break;
+	      // if(cl->LRU_next == NULL) break;
 	    	cl = cl->LRU_next; // se mueve al siguiente nodo
 	    }
 
@@ -199,7 +199,7 @@ void perform_access_instruction_load(
 	    	// y crear uno nuevo para insertar en el head
 
 	    	
-	    	Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
+	    	Pcache_line new_item = malloc(sizeof(cache_line));
 	    	
 	    	new_item->tag = tag;
 	    	new_item->dirty = 0;
@@ -227,7 +227,7 @@ void perform_access_instruction_load(
 	        tag_found = TRUE;
 	        break;
 	      }
-	      if(cl->LRU_next == NULL) break;
+	      // if(cl->LRU_next == NULL) break;
 	    	cl = cl->LRU_next; // se mueve al siguiente nodo
 	    }
 
@@ -242,7 +242,7 @@ void perform_access_instruction_load(
 	    	cache_stat_inst.misses++;
 	    	// Si el tag no estaba, crea nuevo elemento para insertar 
 	    	// al principio de la lista
-	    	Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
+	    	Pcache_line new_item = malloc(sizeof(cache_line));
 	    	new_item->tag = tag;
 	    	new_item->dirty = 0;
 
@@ -272,7 +272,7 @@ void perform_access_data_load(
       cache_stat_data.misses++;
       cache_stat_data.demand_fetches += block_size_in_words;
       
-      Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
+      Pcache_line new_item = malloc(sizeof(cache_line));
       
       new_item->tag = tag;
       new_item->dirty = 0;
@@ -291,7 +291,7 @@ void perform_access_data_load(
           tag_found = TRUE;
           break;
         }
-        if(cl->LRU_next == NULL) break;
+        // if(cl->LRU_next == NULL) break;
       	cl = cl->LRU_next; // se mueve al siguiente nodo
       }
 
@@ -306,7 +306,7 @@ void perform_access_data_load(
       	cache_stat_data.replacements++;
       	// Si el tag no estaba, debe eliminar el nodo de la cola
       	// y crear uno nuevo para insertar en el head
-      	Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
+      	Pcache_line new_item = malloc(sizeof(cache_line));
       	new_item->tag = tag;
       	new_item->dirty = 0;
 
@@ -331,7 +331,7 @@ void perform_access_data_load(
           tag_found = TRUE;
           break;
         }
-        if(cl->LRU_next == NULL) break;
+        // if(cl->LRU_next == NULL) break;
       	cl = cl->LRU_next; // se mueve al siguiente nodo
       }
 
@@ -346,7 +346,7 @@ void perform_access_data_load(
       	cache_stat_data.misses++;
       	// Si el tag no estaba, crea nuevo elemento para insertar 
       	// al principio de la lista
-      	Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
+      	Pcache_line new_item = malloc(sizeof(cache_line));
       	new_item->tag = tag;
       	new_item->dirty = 0;
 
@@ -375,7 +375,7 @@ void perform_access_data_store(
 	    cache_stat_data.misses++;
 	    cache_stat_data.demand_fetches += block_size_in_words;
 	    
-	    Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
+	    Pcache_line new_item = malloc(sizeof(cache_line));
 	    
 	    new_item->tag = tag;
 	    new_item->dirty = 1;
@@ -394,7 +394,7 @@ void perform_access_data_store(
 	        tag_found = TRUE;
 	        break;
 	      }
-	      if(cl->LRU_next == NULL) break;
+	      // if(cl->LRU_next == NULL) break;	
 	    	cl = cl->LRU_next; // se mueve al siguiente nodo
 	    }
 
@@ -412,7 +412,7 @@ void perform_access_data_store(
 	    	cache_stat_data.replacements++;
 	    	// Si el tag no estaba, debe eliminar el nodo de la cola
 	    	// y crear uno nuevo para insertar en el head
-	    	Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
+	    	Pcache_line new_item = malloc(sizeof(cache_line));
 	    	new_item->tag = tag;
 	    	new_item->dirty = 1;
 
@@ -437,7 +437,7 @@ void perform_access_data_store(
 	        tag_found = TRUE;
 	        break;
 	      }
-	      if(cl->LRU_next == NULL) break;
+	      // if(cl->LRU_next == NULL) break;
 	    	cl = cl->LRU_next; // se mueve al siguiente nodo
 	    }
 
@@ -455,7 +455,7 @@ void perform_access_data_store(
 	    	cache_stat_data.misses++;
 	    	// Si el tag no estaba, crea nuevo elemento para insertar 
 	    	// al principio de la lista
-	    	Pcache_line new_item = (Pcache_line)malloc(sizeof(cache_line));
+	    	Pcache_line new_item = malloc(sizeof(cache_line));
 	    	new_item->tag = tag;
 	    	new_item->dirty = 1;
 
