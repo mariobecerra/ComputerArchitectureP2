@@ -113,20 +113,20 @@ void init_cache_aux(cache *c, int size){
 
 void init_cache()
 {
-  printf("Checando tipo de caché\n");
+  // printf("Checando tipo de caché\n");
   if(cache_split){
-    printf("Inicializando...");
+    // printf("Inicializando...");
     init_cache_aux(&c1, cache_dsize);
-    printf("Caché 1 listo...");
+    // printf("Caché 1 listo...");
     init_cache_aux(&c2, cache_isize);  
-    printf("Caché 2 listo.\n");
+    // printf("Caché 2 listo.\n");
   } else {
-    printf("Inicializando...");
+    // printf("Inicializando...");
     init_cache_aux(&c1, cache_usize);  
-    printf("Caché listo.\n");
+    // printf("Caché listo.\n");
   }
 
-  printf("\n\nInicializando estadísticas...");
+  // printf("\n\nInicializando estadísticas...");
   cache_stat_data.accesses=0;
   cache_stat_data.copies_back=0;
   cache_stat_data.demand_fetches=0;
@@ -137,7 +137,7 @@ void init_cache()
   cache_stat_inst.demand_fetches=0;
   cache_stat_inst.misses=0;
   cache_stat_inst.replacements=0;
-  printf("Listo\n\n");
+  // printf("Listo\n\n");
 }
 
 /************************************************************/
