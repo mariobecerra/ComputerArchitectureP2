@@ -89,7 +89,7 @@ void init_cache_aux(cache *c, int size){
   /* initialize the cache, and cache statistics data structures */
   c->size = size;
   c->associativity = cache_assoc;
-  c->n_sets = c->size /(words_per_block*WORD_SIZE);
+  c->n_sets = size/(cache_assoc * cache_block_size);
   c->LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c->n_sets);
   c->LRU_tail = (Pcache_line*)malloc(sizeof(Pcache_line)*c->n_sets);
   c->set_contents = (int*)malloc(sizeof(int)*c->n_sets);
