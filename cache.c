@@ -1,6 +1,5 @@
 /*
  * cache.c
- Primera version: Mapeo directo, cache unificado
  */
 
 
@@ -371,7 +370,14 @@ void perform_access_data_store(
 	cache_stat_data.accesses++;
 
 	if(c->LRU_head[index] == NULL){  // Lista vacía
+
+		// En política WNA, se actualiza la información directamente en la memoria
+        if(cache_writealloc==0){
+         cache_stat_data.copies_back += 1;
+         cache_stat_data.misses++;
+        }
 	    
+	    else{        
 	    cache_stat_data.misses++;
 	    cache_stat_data.demand_fetches += block_size_in_words;
 	    
@@ -379,10 +385,18 @@ void perform_access_data_store(
 	    
 	    new_item->tag = tag;
 	    new_item->dirty = 1;
+
+	    // En política WT, se debe actualizar simultáneamente en memoria la palabra modificada en cache
+        if(cache_writeback==0){
+         cache_stat_data.copies_back += 1;
+         new_item->dirty = 0;     
+        }              
+
 	    c->set_contents[index] = 1;
 	    insert(&c->LRU_head[index], &c->LRU_tail[index], new_item);
+	    }
 
-	} else { // Si la lista no está vacía
+	} else { // Si la lista no está vacía		      
 
 	  if(c->set_contents[index] == c->associativity){	  	
 	    // Si no hay espacio en la lista
@@ -406,7 +420,22 @@ void perform_access_data_store(
 	    	// Ahora el bit está sucio
 	    	c->LRU_head[index]->dirty = 1;
 
+	    	// En política WT, se debe actualizar simultáneamente en memoria la palabra modificada en cache
+            if(cache_writeback==0){
+               cache_stat_data.copies_back += 1; 
+               // El dirty bit es 0, pues la palabra ya está actualizada en memoria principal
+               c->LRU_head[index]->dirty=0;
+            }
+
 	    } else { // miss
+
+	    	// En política WNA, se actualiza la información directamente en la memoria
+	    	if(cache_writealloc==0){
+	    	   cache_stat_data.copies_back += 1;
+        	   cache_stat_data.misses++;
+            }
+	    	
+	    	else{
 	    	cache_stat_data.demand_fetches += block_size_in_words;
 	    	cache_stat_data.misses++;
 	    	cache_stat_data.replacements++;
@@ -418,12 +447,19 @@ void perform_access_data_store(
 
 	    	if(c->LRU_tail[index]->dirty) { // Hay que guardar bloque
       	    cache_stat_data.copies_back += block_size_in_words;
-      	}
+      	    }
+            
+            // En política WT, se debe actualizar simultáneamente en memoria la palabra modificada en cache
+      	    if(cache_writeback==0){    
+               cache_stat_data.copies_back += 1;     
+               new_item->dirty = 0;
+            }
 
 	    	// elimina último elemento
 	    	delete(&c->LRU_head[index], &c->LRU_tail[index], c->LRU_tail[index]);
 	    	// inserta el nuevo elemento
 	    	insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
+	        }
 	    }
 
 
@@ -449,8 +485,20 @@ void perform_access_data_store(
 	    	// Ahora el bit está sucio
 	    	c->LRU_head[index]->dirty = 1;
 
-	    } else { // miss
+	    	// En política WT, se debe actualizar simultáneamente en memoria la palabra modificada en cache
+	    	if(cache_writeback==0){
+               cache_stat_data.copies_back += 1;
+               // Se pone en 0 el dirty bit, pues ya se actualizo en memoria principal la palabra
+               c->LRU_head[index]->dirty = 0;
+            } 
 
+	    } else { // miss	    	
+	    	if(cache_writealloc==0){
+              cache_stat_data.misses++;
+              cache_stat_data.copies_back += 1;
+            }
+
+            else{
 	    	cache_stat_data.demand_fetches += block_size_in_words;
 	    	cache_stat_data.misses++;
 	    	// Si el tag no estaba, crea nuevo elemento para insertar 
@@ -459,11 +507,19 @@ void perform_access_data_store(
 	    	new_item->tag = tag;
 	    	new_item->dirty = 1;
 
+	    	// En política WT, se debe actualizar simultáneamente en memoria la palabra modificada en cache
+	    	if(cache_writeback==0){
+              cache_stat_data.copies_back += 1;
+              // El dirty bit es 0, pues ya se actualizó en memoria principal la palabra
+              new_item->dirty = 0;         
+            }              
+
 	    	// inserta el nuevo elemento
 	    	insert(&(c->LRU_head[index]), &(c->LRU_tail[index]), new_item);
 
 	    	// Aumenta el contador de número de nodos
 	    	c->set_contents[index]++; 
+	        }
 	    }
 	  }
 	}
