@@ -3,4 +3,6 @@
 *.sublime-workspace
 sim
 cacheUnif_Incera.c
+result_files/
+stats_out/
 
