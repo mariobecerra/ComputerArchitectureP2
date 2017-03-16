@@ -14,6 +14,8 @@
 #    	done
 # done
 
+# grep 'hit rate [0-9\.]+' -Po  stats_out/tex_stats_1_wsc.txt 
+
 trace_files=("spice" "tex" "cc")
 
 mkdir stats_out
