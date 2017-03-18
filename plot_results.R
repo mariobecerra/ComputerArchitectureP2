@@ -9,6 +9,18 @@ wsc <- read_csv("result_files/1_wsc.csv")
 block_size <- read_csv("result_files/2_block_size.csv")
 assoc_size <- read_csv("result_files/3_associativity_size.csv")
 memory_bandwidth <- read_csv("result_files/4_memory_bandwidth.csv")
+trace_cc <- read_delim("trazas/cc.trace",
+                       delim = ' ',
+                       col_names = c("Inst", "Loc"))
+
+trace_spice <- read_delim("trazas/spice.trace",
+                       delim = ' ',
+                       col_names = c("Inst", "Loc"))
+
+trace_tex <- read_delim("trazas/tex.trace",
+                       delim = ' ',
+                       col_names = c("Inst", "Loc"))
+
 
 (wsc %>% 
     ggplot(aes(Power, Hit_Rate)) +
@@ -227,4 +239,50 @@ print_4_wt_wb("cc")
 print_4_wt_wb("spice")
 print_4_wt_wb("tex")
 
+
+
+
+##############################
+# Working set size
+##############################
+
+obtiene_wss <- function(df, tipo = 'datos'){
+  if(tipo == 'datos') vec_tipo <- c(0, 1)
+  if(tipo == 'instrucciones') vec_tipo <- 2
+  
+  # Número de localidades de memoria no únicas usadas en datos
+  no_unicos <- df %>% 
+    filter(Inst %in% vec_tipo) %>% 
+    nrow()
+  
+  # Número de localidades de memoria únicas usadas en datos
+  unicos <- df %>% 
+    filter(Inst %in% vec_tipo) %>% 
+    .$Loc %>% 
+    unique() %>% 
+    length()
+  
+  # # en bytes
+  # unicos <- (unicos*32)/8
+  # no_unicos <- (no_unicos*32)/8
+  
+  suma <- unicos + no_unicos
+  
+  unicos_porc = 100*unicos/suma
+  no_unicos_porc = 100 - unicos_porc
+  
+  return(list(unicos = unicos, 
+              no_unicos = no_unicos,
+              unicos_porc = unicos_porc,
+              no_unicos_porc = no_unicos_porc))
+}
+
+obtiene_wss(trace_cc, 'datos')
+obtiene_wss(trace_cc, 'instrucciones')
+
+obtiene_wss(trace_spice, 'datos')
+obtiene_wss(trace_spice, 'instrucciones')
+
+obtiene_wss(trace_tex, 'datos')
+obtiene_wss(trace_tex, 'instrucciones')
 
